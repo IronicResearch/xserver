@@ -110,6 +110,7 @@ ms_present_queue_vblank(RRCrtcPtr crtc,
     xf86CrtcPtr xf86_crtc = crtc->devPrivate;
     struct ms_present_vblank_event *event;
     uint32_t seq;
+    uint64_t reply = msc;
 
     event = calloc(sizeof(struct ms_present_vblank_event), 1);
     if (!event)
@@ -123,12 +124,12 @@ ms_present_queue_vblank(RRCrtcPtr crtc,
         return BadAlloc;
     }
 
-    if (!ms_queue_vblank(xf86_crtc, MS_QUEUE_ABSOLUTE, msc, NULL, seq))
+    if (!ms_queue_vblank(xf86_crtc, MS_QUEUE_ABSOLUTE, msc, &reply, seq))
         return BadAlloc;
 
-    DebugPresent(("\t\tmq %lld seq %u msc %llu (hw msc %u)\n",
+    DebugPresent(("\t\tmq %lld seq %u msc %llu (hw msc %llu)\n",
                  (long long) event_id, seq, (long long) msc,
-                 vbl.request.sequence));
+                 (long long) reply));
     return Success;
 }
 
