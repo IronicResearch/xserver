@@ -764,6 +764,11 @@ drmmode_crtc_set_mode(xf86CrtcPtr crtc, Bool test_only)
     int x, y;
     int i, ret = 0;
 
+    if (!ms->is_drm_master) {
+        drmSetMaster(ms->fd);
+        ms->is_drm_master = TRUE;
+    }
+
     if (!drmmode_crtc_get_fb_id(crtc, &fb_id, &x, &y))
         return 1;
 
@@ -859,6 +864,9 @@ drmmode_crtc_set_mode(xf86CrtcPtr crtc, Bool test_only)
     ret = drmModeSetCrtc(drmmode->fd, drmmode_crtc->mode_crtc->crtc_id,
                          fb_id, x, y, output_ids, output_count, &kmode);
 
+    xf86DrvMsg(crtc->scrn->scrnIndex, X_INFO, "drmModeSetCRTC: %dx%d @%d Hz\n",
+        kmode.hdisplay, kmode.vdisplay, kmode.vrefresh);
+
     free(output_ids);
     return ret;
 }
@@ -869,6 +877,11 @@ drmmode_crtc_flip(xf86CrtcPtr crtc, uint32_t fb_id, uint32_t flags, void *data)
     modesettingPtr ms = modesettingPTR(crtc->scrn);
     drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
     int ret;
+
+    if (!ms->is_drm_master) {
+        drmSetMaster(ms->fd);
+        ms->is_drm_master = TRUE;
+    }
 
     if (ms->atomic_modeset) {
         drmModeAtomicReq *req = drmModeAtomicAlloc();
@@ -883,6 +896,8 @@ drmmode_crtc_flip(xf86CrtcPtr crtc, uint32_t fb_id, uint32_t flags, void *data)
         drmModeAtomicFree(req);
         return ret;
     }
+
+    xf86DrvMsg(crtc->scrn->scrnIndex, X_INFO, "drmModePageFlip\n");
 
     return drmModePageFlip(ms->fd, drmmode_crtc->mode_crtc->crtc_id,
                            fb_id, flags, data);
@@ -1025,6 +1040,7 @@ drmmode_create_bo(drmmode_ptr drmmode, drmmode_bo *bo,
             format = GBM_FORMAT_ARGB8888;
 
 #ifdef GBM_BO_WITH_MODIFIERS
+    {
         uint32_t num_modifiers;
         uint64_t *modifiers = NULL;
 
@@ -1041,6 +1057,7 @@ drmmode_create_bo(drmmode_ptr drmmode, drmmode_bo *bo,
                 return TRUE;
             }
         }
+    }
 #endif
 
         bo->gbm = gbm_bo_create(drmmode->gbm, width, height, format,
@@ -3216,6 +3233,11 @@ drmmode_xf86crtc_resize(ScrnInfoPtr scrn, int width, int height)
         drmModeRmFB(drmmode->fd, old_fb_id);
 
     drmmode_bo_destroy(drmmode, &old_front);
+
+    if (ms->is_stereo_mode) {
+        drmDropMaster(ms->fd);
+        ms->is_drm_master = FALSE;
+    }
 
     return TRUE;
 

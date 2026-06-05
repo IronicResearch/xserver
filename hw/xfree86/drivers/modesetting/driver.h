@@ -122,6 +122,9 @@ typedef struct _modesettingRec {
 
     Bool kms_has_modifiers;
 
+    Bool is_drm_master;
+    Bool is_stereo_mode;
+
 } modesettingRec, *modesettingPtr;
 
 #define modesettingPTR(p) ((modesettingPtr)((p)->driverPrivate))

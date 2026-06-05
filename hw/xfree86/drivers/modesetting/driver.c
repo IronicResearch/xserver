@@ -1542,6 +1542,9 @@ SetMaster(ScrnInfoPtr pScrn)
         xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "drmSetMaster failed: %s\n",
                    strerror(errno));
 
+    ms->is_drm_master = (ret == 0);
+    ms->is_stereo_mode = (getenv("MESA_GLX_FORCE_STEREO") != NULL);
+
     return ret == 0;
 }
 
