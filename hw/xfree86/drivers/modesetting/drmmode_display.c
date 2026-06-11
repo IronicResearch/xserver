@@ -55,6 +55,10 @@
 
 #include "driver.h"
 
+#ifndef DRM_MODE_PAGE_FLIP_TARGET_STEREO
+#define DRM_MODE_PAGE_FLIP_TARGET_STEREO  (DRM_MODE_PAGE_FLIP_TARGET_RELATIVE << 1)
+#endif
+
 static Bool drmmode_xf86crtc_resize(ScrnInfoPtr scrn, int width, int height);
 static PixmapPtr drmmode_create_pixmap_header(ScreenPtr pScreen, int width, int height,
                                               int depth, int bitsPerPixel, int devKind,
@@ -876,6 +880,7 @@ drmmode_crtc_flip(xf86CrtcPtr crtc, uint32_t fb_id, uint32_t flags, void *data)
 {
     modesettingPtr ms = modesettingPTR(crtc->scrn);
     drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
+    drmmode_ptr drmmode = &ms->drmmode;
     int ret;
 
     if (!ms->is_drm_master) {
@@ -897,7 +902,18 @@ drmmode_crtc_flip(xf86CrtcPtr crtc, uint32_t fb_id, uint32_t flags, void *data)
         return ret;
     }
 
-    xf86DrvMsg(crtc->scrn->scrnIndex, X_INFO, "drmModePageFlip\n");
+    xf86DrvMsg(crtc->scrn->scrnIndex, X_INFO, "drmModePageFlip %d\n", fb_id);
+
+    if (ms->is_stereo_mode && drmmode->front_bo.dumb != NULL) {
+        uint32_t offset = drmmode->front_bo.dumb->size;
+
+        flags |= DRM_MODE_PAGE_FLIP_TARGET_STEREO;
+        ret = drmModePageFlipTarget(ms->fd, drmmode_crtc->mode_crtc->crtc_id,
+                                    fb_id, flags, data, offset);
+        if (ret == 0)
+            return ret;
+        ms->is_stereo_mode = FALSE;
+    }
 
     return drmModePageFlip(ms->fd, drmmode_crtc->mode_crtc->crtc_id,
                            fb_id, flags, data);
